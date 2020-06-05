@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
@@ -17,6 +18,7 @@ int main(int argc, char *argv[]) {
    }
 
    for (;;) {
+      auto start = std::chrono::high_resolution_clock::now();
       cv::Mat frame;
       cam.read(frame);
 
@@ -30,6 +32,10 @@ int main(int argc, char *argv[]) {
       if(cv::waitKey(1) >= 0) {
          break;
       }
+
+      auto end = std::chrono::high_resolution_clock::now();
+      int duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+      std::cout << "Game Loop: " << duration << "ms" << std::endl;
    }
 
    return 0;
