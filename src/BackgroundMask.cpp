@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "BackgroundMask.hpp"
 
 #define MODEL_FILE "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb"
@@ -26,10 +28,10 @@ cv::Mat BackgroundMask::GetBackground(const cv::Mat& frame) {
    outFrame = 1.0 / (1.0 + outFrame);
    for(int x=0;x<outFrame.cols;x++) {
       for(int y=0;y<outFrame.rows;y++) {
-         if(outFrame.at<double>(y,x) > THRESHOLD) {
-            outFrame.at<double>(y,x) = 255;
+         if(outFrame.at<float>(y,x) > THRESHOLD) {
+            outFrame.at<float>(y,x) = 255;
          } else {
-            outFrame.at<double>(y,x) = 0;
+            outFrame.at<float>(y,x) = 0;
          }
       }
    }

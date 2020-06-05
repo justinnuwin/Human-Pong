@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
    BackgroundMask bMask;
 
-   cam.open(4);
+   cam.open(2);
 
    if (!cam.isOpened()) {
         std::cerr << "Error: Unable to open camera\n";
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
       }
 
       cv::Mat mask = bMask.GetBackground(frame);
-      imshow("Mask", frame);
+      imshow("Mask", mask);
       if(cv::waitKey(1) >= 0) {
          break;
       }
