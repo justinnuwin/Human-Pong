@@ -36,7 +36,7 @@ class Pong_Server {
         int num_connected;
 
         Glib::RefPtr<Gst::Pipeline> tx_pipeline;
-        Glib::RefPtr<Gst::Element> appsrc;
+        Glib::RefPtr<Gst::AppSrc> appsrc;
 
         Pong_Connected_Client clients[NUM_PLAYERS];
 

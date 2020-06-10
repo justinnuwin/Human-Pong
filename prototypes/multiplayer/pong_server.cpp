@@ -62,12 +62,9 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, void (Pong_Server::*app
     
     Glib::RefPtr<Gst::Element>
         source = Gst::ElementFactory::create_element("udpsrc", "source"),
-        depay = Gst::ElementFactory::create_element("rtpjpegdepay", "rtpdepay");
-        //dec = Gst::ElementFactory::create_element("jpegdec", "decoder"),
-        //sink = Gst::ElementFactory::create_element("appsink", "sink");
-    Glib::RefPtr<Gst::AppSink> appsink = Gst::AppSink::create("sink");
-
-    //appsink = appsink.cast_static(sink);
+        depay = Gst::ElementFactory::create_element("rtpjpegdepay", "rtpdepay"),
+        sink = Gst::ElementFactory::create_element("appsink", "sink");
+    //Glib::RefPtr<Gst::AppSink> appsink = Gst::AppSink::create("sink");
 
     // Configure Source
     std::string ip = ipAddressToString(&udp.addr);
@@ -85,25 +82,27 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, void (Pong_Server::*app
     source->set_property("caps", caps);
 
     // Configure appsink
-    appsink->set_property("emit-signals", TRUE);
+    sink->set_property("emit-signals", TRUE);
     //sink->signal_new_sample().connect(sigc::mem_fun(*this, appsink_callback));
     // Link new-sample signal to data_available() callback in C, seems to work fine
-    g_signal_connect(appsink->Gst::Element::gobj(), "new-sample", G_CALLBACK(appsink_callback), NULL);
+    g_signal_connect(sink->Gst::Element::gobj(), "new-sample", G_CALLBACK(appsink_callback), NULL);
 
-    if (!source || !caps || !depay || !appsink) {
+    if (!source || !caps || !depay || !sink) {
         std::cerr << "GStreamer: Element creation failed\n" << std::endl;
         exit(EXIT_FAILURE);
     }
 
     try {
-        rx_pipeline->add(source)->add(depay)->add(appsink);
+        rx_pipeline->add(source)->add(depay)->add(sink);
         
         source->link(depay);
-        depay->link(appsink);
+        depay->link(sink);
     } catch (const std::runtime_error &err) {
         std::cerr<<err.what()<<std::endl;
         return -1;
     }
+
+    appsink = appsink.cast_static(sink);
 
     return 0;
 }
@@ -143,14 +142,14 @@ int Pong_Server::setup_tx_pipeline(std::string ip) {
         return -1;
     }
 
-    appsrc = source;
+    appsrc = appsrc.cast_static(source);
 
     return 0;
 }
 
 // Places JPEG into tx pipeline, must use image of size PONG_IMG_SIZE
 void Pong_Server::send_jpeg(char* img) {
-    // Uses Gstreamer C Library because gstreamermm is confusing
+    /* C implementation
     GstBuffer* buffer;
 
     buffer = gst_buffer_new_allocate(NULL, PONG_IMG_SIZE, NULL);
@@ -162,6 +161,16 @@ void Pong_Server::send_jpeg(char* img) {
     gst_buffer_unmap(buffer, &info);
 
     gst_app_src_push_buffer(GST_APP_SRC(appsrc->Gst::Element::gobj()), buffer);
+    */
+
+    Glib::RefPtr<Gst::Buffer> buf = Gst::Buffer::create(PONG_IMG_SIZE);
+    Gst::MapInfo map;
+    
+    buf->map(map, Gst::MAP_WRITE);
+    memmove(map.get_data(), img, PONG_IMG_SIZE);
+    buf->unmap(map);
+
+    appsrc->push_buffer(buf);
 }
 
 // app sink new_sample callback
@@ -169,20 +178,20 @@ void Pong_Server::data_available() {
     char* img = clients[0].get_jpeg();
     
     std::cout << "recvd data\n" << endl;
+
     send_jpeg(img);
     free(img);
 }
 
 void Pong_Server::new_client() {
     char buf[1200];
-    int recv_len;
-
+    
     Pong_Connected_Client* client = &clients[num_connected];
 
     *client = Pong_Connected_Client();
  
-    // for now just trash first packet to get an ip
-    recv_len = safeRecvfrom(server_sock, &buf, 1200, &client->udp, MSG_PEEK);
+    // peek at message to get IP
+    safeRecvfrom(server_sock, &buf, 1200, &client->udp, MSG_PEEK);
      
     std::string ip = ipAddressToString(&client->udp.addr); 
     clients[0].setup_rx_pipeline(server_sock, &Pong_Server::data_available);
