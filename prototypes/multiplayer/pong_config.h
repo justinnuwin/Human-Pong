@@ -11,6 +11,7 @@
 #define PONG_IMG_WIDTH_PX 640
 #define PONG_IMG_HEIGHT_PX 480
 #define PONG_IMG_SIZE (PONG_IMG_WIDTH_PX * PONG_IMG_HEIGHT_PX)
+#define VIDEO_FRAME_RATE "10/1"
 
 // Networking
 #define REMOTE_HOST "127.0.0.1"
@@ -19,5 +20,8 @@
 #define SERVER_TX_PORT VIDEO_PORT + 1
 
 #define UDP_BUF_SIZE (512 * 1024)
+
+#define CONNECTION_TIMEOUT_S 1
+#define CONNECTION_RETRIES 10
 
 #endif

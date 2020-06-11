@@ -14,13 +14,16 @@
 
 #include "pong_server.h"
 #include "pong_config.h"
+#include "pong_packets.h"
 
 #include "gethostbyname.h"
 #include "networks.h"
 
 using namespace std;
 
-Pong_Connected_Client::Pong_Connected_Client() {}
+Pong_Connected_Client::Pong_Connected_Client() {
+    udp = {0};
+}
 
 // blocks until data is available
 // returns size of data received
@@ -81,6 +84,7 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
                                                             "encoding-name", "JPEG",
                                                             "payload", 26);
     source->set_property("caps", caps);
+    source->set_property("buffer-size", UDP_BUF_SIZE);
 
     // Configure appsink
     appsink->set_property("emit-signals", TRUE);
@@ -90,7 +94,7 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
     //g_signal_connect(sink->Gst::Element::gobj(), "new-sample", G_CALLBACK(appsink_callback), NULL);
 
     if (!source || !caps || !depay || !appsink) {
-        std::cerr << "GStreamer: Element creation failed\n" << std::endl;
+        std::cerr << "GStreamer: Element creation failed in rx pipeline\n" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -113,7 +117,7 @@ Pong_Server::Pong_Server(int port) {
     num_connected = 0;
 }
 
-int Pong_Server::setup_tx_pipeline(std::string ip) {
+int Pong_Server::setup_tx_pipeline(std::string ip1, std::string ip2) {
     tx_pipeline = Gst::Pipeline::create();
 
     appsrc = Gst::AppSrc::create("tx_src");
@@ -121,7 +125,16 @@ int Pong_Server::setup_tx_pipeline(std::string ip) {
     Glib::RefPtr<Gst::Element>
         capsfilter = Gst::ElementFactory::create_element("capsfilter", "caps"),
         pay = Gst::ElementFactory::create_element("rtpjpegpay", "tx_rtppay"),
-        sink = Gst::ElementFactory::create_element("udpsink", "tx_sink");
+        tee = Gst::ElementFactory::create_element("tee"),
+        queue1 = Gst::ElementFactory::create_element("queue"),
+        sink1 = Gst::ElementFactory::create_element("udpsink", "tx_sink1"),
+        queue2 = Gst::ElementFactory::create_element("queue"),
+        sink2 = Gst::ElementFactory::create_element("udpsink", "tx_sink2");
+
+    if (!appsrc || !capsfilter || !pay || !tee || !queue1 || !sink1 || !queue2 || !sink2) {
+        std::cerr << "GStreamer: Element creation failed in tx pipeline\n" << std::endl;
+        return -1;
+    }
 
     Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("image/jpeg",
                                                             "width", PONG_IMG_WIDTH_PX,
@@ -129,23 +142,38 @@ int Pong_Server::setup_tx_pipeline(std::string ip) {
  
     capsfilter->set_property("caps", caps);
 
-    sink->set_property("host", ip);
-    sink->set_property("port", SERVER_TX_PORT);
-    sink->set_property("buffer-size", UDP_BUF_SIZE);
+    // Configure sink for first client
+    sink1->set_property("host", ip1);
+    sink1->set_property("port", SERVER_TX_PORT);
+    sink1->set_property("buffer-size", UDP_BUF_SIZE);
+    
+    // configure sink for second client
+    sink2->set_property("host", ip2);
+    sink2->set_property("port", SERVER_TX_PORT);
+    sink2->set_property("buffer-size", UDP_BUF_SIZE);
 
-    if (!appsrc || !capsfilter || !pay || !sink) {
-        std::cerr << "GStreamer: Element creation failed\n" << std::endl;
+    // Add Elements and link
+    try {
+        tx_pipeline->add(appsrc)->add(capsfilter)->add(pay)->add(tee)
+        ->add(queue1)->add(sink1)
+        ->add(queue2)->add(sink2);
+
+        appsrc->link(capsfilter)->link(pay);
+        queue1->link(sink1);
+        queue2->link(sink2);
+    } catch (const std::runtime_error &err) {
+        std::cerr<<err.what()<<std::endl;
         return -1;
     }
 
-    try {
-        tx_pipeline->add(appsrc)->add(capsfilter)->add(pay)->add(sink);
-
-        appsrc->link(capsfilter);
-        capsfilter->link(pay);
-        pay->link(sink);
-    } catch (const std::runtime_error &err) {
-        std::cerr<<err.what()<<std::endl;
+    // Link tee
+    Glib::RefPtr<Gst::PadTemplate> tee_src = tee->get_pad_template("src_%u");
+    if (tee->request_pad(tee_src)->link(queue1->get_static_pad("sink")) != Gst::PAD_LINK_OK) {
+        std::cerr << "Pong_Server: Could not link tee pad with client1 queue" << endl;
+        return -1;
+    }
+    if (tee->request_pad(tee_src)->link(queue2->get_static_pad("sink")) != Gst::PAD_LINK_OK) {
+        std::cerr << "Pong_Server: Could not link tee pad with client1 queue" << endl;
         return -1;
     }
 
@@ -188,18 +216,14 @@ Gst::FlowReturn Pong_Server::data_available() {
     return Gst::FlowReturn::FLOW_OK;
 }
 
-void Pong_Server::new_client() {
-    char buf[1200];
-
+void Pong_Server::new_client(UDPInfo* udp) {
     Pong_Connected_Client* client = &clients[num_connected];
 
     *client = Pong_Connected_Client();
+    memcpy(&client->udp, udp, sizeof(UDPInfo));
 
-    // peek at message to get IP
-    safeRecvfrom(server_sock, &buf, 1200, &client->udp, MSG_PEEK);
-
-    std::string ip = ipAddressToString(&client->udp.addr);
-    clients[0].setup_rx_pipeline(server_sock, this);
+    std::string ip = ipAddressToString(&udp->addr);
+    client->setup_rx_pipeline(server_sock, this);
 
     std::cout << "Pong_Server: Client connected with ip " << ip << endl;
 
@@ -208,34 +232,62 @@ void Pong_Server::new_client() {
 
 // waits for clients to connect
 void Pong_Server::waiting_room() {
-    string ip;
+    UDPInfo udp;
+    int flag;
+    string ip1, ip2;
 
     #ifndef PONG_TEST_MODE
-    while(num_connected < 1) {
+    while(num_connected < NUM_PLAYERS) {
         select_call(server_sock, 0, 0, !USE_SELECT_TIMEOUT);
-
-        new_client();
+       
+        flag = recv_pong_pkt(server_sock, &udp);
+ 
+        if (flag == FLAG_PONG_CONNECT) {
+            new_client(&udp);
+            send_pong_pkt(server_sock, &udp, FLAG_PONG_CONNECT_ACK);
+        }
+        else
+            std::cout << "Pong_Server: rcvd back packet" << endl;
     }
 
-    // setup tx pipeline for connected ips (TODO MULTICAST)
-    ip = ipAddressToString(&clients[0].udp.addr);
-    setup_tx_pipeline(ip);
+    // setup tx pipeline for connected ips
+    ip1 = ipAddressToString(&clients[0].udp.addr);
+    ip2 = ipAddressToString(&clients[1].udp.addr);
+    setup_tx_pipeline(ip1, ip2);
 
     #else
         // TODO implement test mode setup
     #endif
 }
 
+void Pong_Server::set_client_pipeline_states(Gst::State state) {
+    int i;
+
+    for(i=0; i < num_connected; i++) {
+        clients[i].rx_pipeline->set_state(state);
+    }
+}
+
+void Pong_Server::send_clients_pkt(int flag) {
+    int i;
+    
+    for (i=0; i < num_connected; i++) {
+        send_pong_pkt(server_sock, &clients[i].udp, flag);
+    }
+}
+
 void Pong_Server::start_game() {
     Glib::RefPtr<Glib::MainLoop> main_loop = Glib::MainLoop::create();
 
-    clients[0].rx_pipeline->set_state(Gst::STATE_PLAYING);
+    set_client_pipeline_states(Gst::STATE_PLAYING);
     tx_pipeline->set_state(Gst::STATE_PLAYING);
+
+    send_clients_pkt(FLAG_PONG_START);
 
     std::cout << "Pong_Server: running\n";
     main_loop->run();
 
-    clients[0].rx_pipeline->set_state(Gst::STATE_NULL);
+    set_client_pipeline_states(Gst::STATE_NULL);
     tx_pipeline->set_state(Gst::STATE_NULL);
 
     std::cout << "Pong_Server: server done\n";

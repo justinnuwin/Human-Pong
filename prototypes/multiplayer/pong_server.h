@@ -26,7 +26,7 @@ class Pong_Server {
         Pong_Server(int port);
 
         void waiting_room();
-        void new_client();
+        void new_client(UDPInfo*);
         void start_game();
 
         void send_jpeg(char*, int);
@@ -42,7 +42,9 @@ class Pong_Server {
 
         Pong_Connected_Client clients[NUM_PLAYERS];
 
-        int setup_tx_pipeline(std::string ip);
+        int setup_tx_pipeline(std::string ip1, std::string ip2);
+        void set_client_pipeline_states(Gst::State);
+        void send_clients_pkt(int flag);
 };
 
 #endif

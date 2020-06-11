@@ -17,6 +17,7 @@
 #include <netdb.h>
 
 #include "networks.h"
+#include "gethostbyname.h"
 
 int get_UDP_socket() {
     int sock;
@@ -29,12 +30,11 @@ int get_UDP_socket() {
     return sock;
 }
 
-int safeRecvfrom(int socketNum, void* buf, int len, UDPInfo* udp, int flags)
-{
+int safeRecvfrom(int socketNum, void* buf, int len, UDPInfo* udp) {
 	int returnValue = 0;
     udp->addr_len = sizeof(struct sockaddr_in6);
 
-	if ((returnValue = recvfrom(socketNum, buf, (size_t) len, flags, (struct sockaddr*)&udp->addr, &udp->addr_len)) < 0)
+	if ((returnValue = recvfrom(socketNum, buf, (size_t) len, 0, (struct sockaddr*)&udp->addr, &udp->addr_len)) < 0)
 	{
 		perror("recvfrom: ");
 		exit(-1);
@@ -43,8 +43,18 @@ int safeRecvfrom(int socketNum, void* buf, int len, UDPInfo* udp, int flags)
 	return returnValue;
 }
 
-int udpServerSetup(int portNumber)
-{
+int safeSendto(int socketNum, void* buf, int len, UDPInfo* udp) {
+	int ret = 0;
+
+	if ((ret = sendto(socketNum, (void*)buf, (size_t)len, 0, (struct sockaddr*)&udp->addr, udp->addr_len)) < 0) {
+		perror("sendto");
+		exit(-1);
+	}
+	
+	return ret;
+}
+
+int udpServerSetup(int portNumber) {
 	struct sockaddr_in6 server;
 	int socketNum = 0;
 	int serverAddrLen = 0;	
@@ -73,6 +83,32 @@ int udpServerSetup(int portNumber)
 
 	return socketNum;	
 	
+}
+
+int setupUdpClientToServer(UDPInfo* udp, char * hostName, int portNumber) {
+	// currently only setup for IPv4 
+	int socketNum = 0;
+//	char ipString[INET6_ADDRSTRLEN];
+	uint8_t * ipAddress = NULL;
+	
+    memset((void*)&udp->addr, 0, sizeof(struct sockaddr_in6));
+    udp->addr_len = sizeof(struct sockaddr_in6);
+
+	// create the socket
+	socketNum = get_UDP_socket();
+  	 	
+	if ((ipAddress = gethostbyname6(hostName, &udp->addr)) == NULL)
+	{
+		exit(-1);
+	}
+	
+	udp->addr.sin6_port = ntohs(portNumber);
+	udp->addr.sin6_family = AF_INET6;	
+	
+	//inet_ntop(AF_INET6, ipAddress, ipString, sizeof(ipString));
+	//printf("Server info - IP: %s Port: %d \n", ipString, portNumber);
+		
+	return socketNum;
 }
 
 bool select_call(int sock, int seconds, int microseconds, bool set_null) {
