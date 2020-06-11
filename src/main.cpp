@@ -3,12 +3,12 @@
 
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
-#include "BackgroundMask.hpp"
+#include "BackgroundSub.hpp"
 
 int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
-   BackgroundMask bMask;
 
    cam.open(2);
 
@@ -17,9 +17,16 @@ int main(int argc, char *argv[]) {
         return -1;
    }
 
+   cv::Mat frame;
+   cam.read(frame);
+
+   cv::Mat img = cv::imread("./bg.jpg");
+   cv::resize(img, img, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
+
+   BackgroundSub bSub = BackgroundSub(img);
+
    for (;;) {
       auto start = std::chrono::high_resolution_clock::now();
-      cv::Mat frame;
       cam.read(frame);
 
       if(frame.empty()) {
@@ -27,8 +34,8 @@ int main(int argc, char *argv[]) {
          return -1;
       }
 
-      cv::Mat mask = bMask.GetBackground(frame);
-      imshow("Mask", mask);
+      cv::Mat mask = bSub.Sub(frame);
+      imshow("Background", mask);
       if(cv::waitKey(1) >= 0) {
          break;
       }
