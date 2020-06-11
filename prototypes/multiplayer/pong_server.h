@@ -10,12 +10,14 @@ class Pong_Connected_Client {
     public:
         Pong_Connected_Client();
 
-        char* get_jpeg();
+        int get_jpeg();
         int setup_rx_pipeline(int socket, Pong_Server *server);
 
         Glib::RefPtr<Gst::Pipeline> rx_pipeline;
         Glib::RefPtr<Gst::AppSink> appsink;
         UDPInfo udp;
+
+        char* img;
 
 };
 
@@ -27,7 +29,7 @@ class Pong_Server {
         void new_client();
         void start_game();
 
-        void send_jpeg(char*);
+        void send_jpeg(char*, int);
 
         Gst::FlowReturn data_available();
 

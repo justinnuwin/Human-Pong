@@ -18,4 +18,6 @@
 #define SERVER_RX_PORT VIDEO_PORT
 #define SERVER_TX_PORT VIDEO_PORT + 1
 
+#define UDP_BUF_SIZE (512 * 1024)
+
 #endif

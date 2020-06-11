@@ -23,7 +23,8 @@ using namespace std;
 Pong_Connected_Client::Pong_Connected_Client() {}
 
 // blocks until data is available
-char* Pong_Connected_Client::get_jpeg() {
+// returns size of data received
+int Pong_Connected_Client::get_jpeg() {
 /* Example using C library
     GstSample* sample = gst_app_sink_pull_sample(GST_APP_SINK(appsink->Gst::Element::gobj()));
     if (sample == NULL) {
@@ -45,16 +46,16 @@ char* Pong_Connected_Client::get_jpeg() {
     Glib::RefPtr<Gst::Buffer> buf = sample->get_buffer();
     Gst::MapInfo map;
 
-    buf->map(map, Gst::MAP_WRITE);
+    buf->map(map, Gst::MAP_READ);
 
     // Allocate buffer to store image
-    char* img = new char[map.get_size()];
+    img = new char[map.get_size()];
     // Copy image
     memmove(img, map.get_data(), map.get_size());
 
     // Cleanup
     buf->unmap(map);
-    return img;
+    return map.get_size();
 }
 
 int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
@@ -83,9 +84,8 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
 
     // Configure appsink
     appsink->set_property("emit-signals", TRUE);
-    //sink->signal_new_sample().connect(sigc::mem_fun(*this, appsink_callback));
-    // Link new-sample signal to data_available() callback in C, seems to work fine
 
+    // Link new-sample signal to data_available() callback
     appsink->signal_new_sample().connect(sigc::mem_fun(server, &Pong_Server::data_available));
     //g_signal_connect(sink->Gst::Element::gobj(), "new-sample", G_CALLBACK(appsink_callback), NULL);
 
@@ -116,39 +116,44 @@ Pong_Server::Pong_Server(int port) {
 int Pong_Server::setup_tx_pipeline(std::string ip) {
     tx_pipeline = Gst::Pipeline::create();
 
-    Glib::RefPtr<Gst::Element>
-        source = Gst::ElementFactory::create_element("appsrc", "source"),
-        pay = Gst::ElementFactory::create_element("rtpjpegpay", "rtppay"),
-        sink = Gst::ElementFactory::create_element("udpsink", "sink");
+    appsrc = Gst::AppSrc::create("tx_src");
 
-    Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("video/x-raw",
+    Glib::RefPtr<Gst::Element>
+        capsfilter = Gst::ElementFactory::create_element("capsfilter", "caps"),
+        pay = Gst::ElementFactory::create_element("rtpjpegpay", "tx_rtppay"),
+        sink = Gst::ElementFactory::create_element("udpsink", "tx_sink");
+
+    Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("image/jpeg",
                                                             "width", PONG_IMG_WIDTH_PX,
-                                                            "height", PONG_IMG_HEIGHT_PX);
+                                                            "height", PONG_IMG_WIDTH_PX);
+ 
+    capsfilter->set_property("caps", caps);
+
     sink->set_property("host", ip);
     sink->set_property("port", SERVER_TX_PORT);
+    sink->set_property("buffer-size", UDP_BUF_SIZE);
 
-    if (!source || !pay || !sink) {
+    if (!appsrc || !capsfilter || !pay || !sink) {
         std::cerr << "GStreamer: Element creation failed\n" << std::endl;
         return -1;
     }
 
     try {
-        tx_pipeline->add(source)->add(pay)->add(sink);
+        tx_pipeline->add(appsrc)->add(capsfilter)->add(pay)->add(sink);
 
-        source->link(pay);
+        appsrc->link(capsfilter);
+        capsfilter->link(pay);
         pay->link(sink);
     } catch (const std::runtime_error &err) {
         std::cerr<<err.what()<<std::endl;
         return -1;
     }
 
-    appsrc = appsrc.cast_static(source);
-
     return 0;
 }
 
 // Places JPEG into tx pipeline, must use image of size PONG_IMG_SIZE
-void Pong_Server::send_jpeg(char* img) {
+void Pong_Server::send_jpeg(char* img, int img_size) {
     /* C implementation
     GstBuffer* buffer;
 
@@ -167,7 +172,7 @@ void Pong_Server::send_jpeg(char* img) {
     Gst::MapInfo map;
 
     buf->map(map, Gst::MAP_WRITE);
-    memmove(map.get_data(), img, PONG_IMG_SIZE);
+    memmove(map.get_data(), img, img_size);
     buf->unmap(map);
 
     appsrc->push_buffer(buf);
@@ -175,12 +180,11 @@ void Pong_Server::send_jpeg(char* img) {
 
 // app sink new_sample callback
 Gst::FlowReturn Pong_Server::data_available() {
-    char* img = clients[0].get_jpeg();
+    int img_size = clients[0].get_jpeg();
 
-    std::cout << "recvd data\n" << endl;
+    send_jpeg(clients[0].img, img_size);
+    delete clients[0].img;
 
-    send_jpeg(img);
-    free(img);
     return Gst::FlowReturn::FLOW_OK;
 }
 

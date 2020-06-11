@@ -62,6 +62,8 @@ int Pong_Client::setup_rx_pipeline() {
                                                             "payload", 26);   
     source->set_property("caps", caps);
   
+    source->set_property("buffer-size", UDP_BUF_SIZE);
+
     if (!source || !caps || !depay || !dec || !sink) {
         std::cerr << "GStreamer: Element creation failed\n" << std::endl;
         exit(EXIT_FAILURE);
