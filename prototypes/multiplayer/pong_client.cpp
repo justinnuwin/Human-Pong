@@ -12,9 +12,9 @@
 
 Pong_Client::Pong_Client() {}
 
-int Pong_Client::setup_tx_pipeline_auto(int port) { 
+int Pong_Client::setup_tx_pipeline_auto(int port) {
     tx_pipeline = Gst::Pipeline::create();
-    
+
     Glib::RefPtr<Gst::Element>
         source = Gst::ElementFactory::create_element("videotestsrc", "source"),
         enc = Gst::ElementFactory::create_element("jpegenc", "encoder"),
@@ -24,7 +24,7 @@ int Pong_Client::setup_tx_pipeline_auto(int port) {
     sink->set_property("host", (std::string)REMOTE_HOST);
     sink->set_property("port", port);
     sink->set_property("buffer-size", UDP_BUF_SIZE);
-  
+
     if (!source || !enc || !pay || !sink) {
         std::cerr << "GStreamer: Element creation failed\n" << std::endl;
         return -1;
@@ -32,7 +32,7 @@ int Pong_Client::setup_tx_pipeline_auto(int port) {
 
     try {
         tx_pipeline->add(source)->add(enc)->add(pay)->add(sink);
-        
+
         source->link(enc);
         enc->link(pay);
         pay->link(sink);
@@ -44,12 +44,12 @@ int Pong_Client::setup_tx_pipeline_auto(int port) {
     return 0;
 }
 
-int Pong_Client::setup_tx_pipeline(int port) { 
+int Pong_Client::setup_tx_pipeline(int port, char* src) {
     tx_pipeline = Gst::Pipeline::create();
-    
+
     Glib::RefPtr<Gst::Element>
         source = Gst::ElementFactory::create_element("v4l2src", "source"),
-//        vidrate = Gst::ElementFactory::create_element("videorate"), 
+//        vidrate = Gst::ElementFactory::create_element("videorate"),
         capsfilter = Gst::ElementFactory::create_element("capsfilter", "caps"),
         enc = Gst::ElementFactory::create_element("jpegenc", "encoder"),
         pay = Gst::ElementFactory::create_element("rtpjpegpay", "rtppay"),
@@ -59,12 +59,12 @@ int Pong_Client::setup_tx_pipeline(int port) {
                                                             "width", PONG_IMG_WIDTH_PX,
                                                             "height", PONG_IMG_HEIGHT_PX);
                                                             /*"framerate", VIDEO_FRAME_RATE);*/
+    source->set_property("device", (std::string)src);
     capsfilter->set_property("caps", caps);
-
     sink->set_property("host", (std::string)REMOTE_HOST);
     sink->set_property("port", port);
     sink->set_property("buffer-size", UDP_BUF_SIZE);
-  
+
     if (!source || !caps || !enc || !pay || !sink) {
         std::cerr << "GStreamer: Element creation failed\n" << std::endl;
         return -1;
@@ -72,7 +72,7 @@ int Pong_Client::setup_tx_pipeline(int port) {
 
     try {
         tx_pipeline->add(source)->add(capsfilter)->add(enc)->add(pay)->add(sink);
-        
+
         source->link(capsfilter);
         //vidrate->link(capsfilter);
         capsfilter->link(enc);
@@ -88,7 +88,7 @@ int Pong_Client::setup_tx_pipeline(int port) {
 
 int Pong_Client::setup_rx_pipeline() {
     rx_pipeline = Gst::Pipeline::create();
-    
+
     Glib::RefPtr<Gst::Element>
         source = Gst::ElementFactory::create_element("udpsrc", "source"),
         depay = Gst::ElementFactory::create_element("rtpjpegdepay", "rtpdepay"),
@@ -99,9 +99,9 @@ int Pong_Client::setup_rx_pipeline() {
 
     Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("application/x-rtp",
                                                             "encoding-name", "JPEG",
-                                                            "payload", 26);   
+                                                            "payload", 26);
     source->set_property("caps", caps);
-  
+
     source->set_property("buffer-size", UDP_BUF_SIZE);
 
     if (!source || !caps || !depay || !dec || !sink) {
@@ -111,7 +111,7 @@ int Pong_Client::setup_rx_pipeline() {
 
     try {
         rx_pipeline->add(source)->add(depay)->add(dec)->add(sink);
-        
+
         source->link(depay);
         depay->link(dec);
         dec->link(sink);
@@ -128,13 +128,13 @@ void Pong_Client::start_game() {
 
     tx_pipeline->set_state(Gst::STATE_PLAYING);
     rx_pipeline->set_state(Gst::STATE_PLAYING);
-  
+
     main_loop->run();
 
     tx_pipeline->set_state(Gst::STATE_NULL);
-    rx_pipeline->set_state(Gst::STATE_NULL); 
+    rx_pipeline->set_state(Gst::STATE_NULL);
 
-    
+
 }
 
 // Returns true if connected
@@ -154,7 +154,7 @@ bool Pong_Client::waiting_room() {
 
         if (SELECT_PACKET_RCVD == select_call(client_sock, CONNECTION_TIMEOUT_S, 0, USE_SELECT_TIMEOUT))
             connected = (FLAG_PONG_CONNECT_ACK == recv_pong_pkt(client_sock, &udp));
-    } 
+    }
 
     if (!connected)
         return false;
@@ -169,12 +169,12 @@ bool Pong_Client::waiting_room() {
 }
 
 // fakesrc determines whether client broadcasts fake src or not
-void Pong_Client::start(bool fakesrc) {
+void Pong_Client::start(char* src) {
     // set up UDPInfo and socket
     client_sock = setupUdpClientToServer(&server_udp, (char*)REMOTE_HOST, CONNECT_PORT);
 
     if (!waiting_room()) {
-        std::cerr << "Pong_Client: Connection to Server timed out or rcvd bad packet" << std::endl;    
+        std::cerr << "Pong_Client: Connection to Server timed out or rcvd bad packet" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -184,14 +184,14 @@ void Pong_Client::start(bool fakesrc) {
         exit(EXIT_FAILURE);
     }
 
-    if (fakesrc) {
+    if (strcmp(src, "auto") == 0) {
         if (setup_tx_pipeline_auto(server_udp.port) == -1) {
             std::cout << "Pong_Client: Error setting up tx pipeline\n";
             exit(EXIT_FAILURE);
         }
     }
     else {
-        if (setup_tx_pipeline(server_udp.port) == -1) {
+        if (setup_tx_pipeline(server_udp.port, src) == -1) {
             std::cout << "Pong_Client: Error setting up tx pipeline\n";
             exit(EXIT_FAILURE);
         }
@@ -204,22 +204,23 @@ void Pong_Client::start(bool fakesrc) {
 
 bool check_args(int argc, char** argv) {
     if (argc > 1)
-        return (strcmp(argv[1], "auto") == 0); 
+        return (strcmp(argv[1], "auto") == 0);
     return false;
 }
 
-int main (int argc, char** argv) { 
-    bool fakesrc;
+int main (int argc, char** argv) {
+    if(argc != 2) {
+        std::cerr << "Usage: client <camera file | auto>" << std::endl;
+        return -1;
+    }
 
     Gst::init();
 
-    fakesrc = check_args(argc, argv);    
-
     Pong_Client client = Pong_Client();
-    
-    client.start(fakesrc);
+
+    client.start(argv[1]);
 
     std::cout << "done\n";
- 
+
     exit(EXIT_SUCCESS);
 }

@@ -10,11 +10,11 @@ class Pong_Client {
         Glib::RefPtr<Gst::Pipeline> rx_pipeline;
         Glib::RefPtr<Gst::Pipeline> tx_pipeline;
 
-        int setup_tx_pipeline(int);
+        int setup_tx_pipeline(int, char *);
         int setup_rx_pipeline();
         int setup_tx_pipeline_auto(int);
-        
-        void start(bool);
+
+        void start(char *);
     private:
         int client_sock;
         UDPInfo server_udp;
