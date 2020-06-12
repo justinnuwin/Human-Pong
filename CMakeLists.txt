@@ -11,8 +11,12 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMERMM REQUIRED IMPORTED_TARGET gstreamermm-1.0)
 
-set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp" "src/PoseEstimation.cpp" "src/ProcessImg.cpp")
+set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp" "src/PoseEstimation.cpp" "src/ProcessImg.cpp"
+            "src/game.cpp")
 file(GLOB_RECURSE HEADERS "src/*.h")
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 add_executable("PongTest" "src/PongTest.cpp" ${SOURCES} ${HEADERS})
 target_link_libraries("PongTest" ${OpenCV_LIBS})
@@ -26,7 +30,7 @@ add_executable("client" "src/pong_client.cpp" ${NET_SOURCES} ${HEADERS})
 target_link_libraries("client" PUBLIC PkgConfig::GSTREAMERMM)
 
 add_executable("server" "src/pong_server.cpp" ${SOURCES} ${NET_SOURCES} ${HEADERS})
-target_link_libraries("server" PUBLIC PkgConfig::GSTREAMERMM ${OpenCV_LIBS})
+target_link_libraries("server" PUBLIC PkgConfig::GSTREAMERMM ${OpenCV_LIBS} Threads::Threads)
 
 add_executable("PoseEstimationTest" "src/TestPoseEstimation.cpp" ${SOURCES} ${HEADERS})
 target_link_libraries("PoseEstimationTest" ${OpenCV_LIBS})

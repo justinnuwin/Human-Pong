@@ -18,6 +18,7 @@
 
 #include "gethostbyname.h"
 #include "networks.h"
+#include <thread>         // std::thread
 
 using namespace std;
 
@@ -49,14 +50,16 @@ int Pong_Connected_Client::get_jpeg() {
 // app sink new_sample callback
 Gst::FlowReturn Pong_Connected_Client::data_available() {
     this->get_jpeg();
-    std::vector<uchar> out = processor->Process(server->clients[0].img, server->clients[1].img);
+    // std::vector<uchar> out = processor->Process(server->clients[0].img, server->clients[1].img);
 
+    /*
     // For bent-pipe, send data back to origin
     if(out.size() > 0) {
         server->send_jpeg(out);
     } else {
         std::cout << "Missing one of two client frames, skipping sending server frame." << std::endl;
     }
+    */
 
     return Gst::FlowReturn::FLOW_OK;
 }
@@ -112,7 +115,7 @@ int Pong_Connected_Client::setup_rx_pipeline(int port) {
 }
 
 Pong_Server::Pong_Server(int port) {
-    processor = new ProcessImg();
+    //processor = new ProcessImg();
     server_sock = udpServerSetup(port);
 
     num_connected = 0;
@@ -285,10 +288,23 @@ void Pong_Server::start_game() {
     std::cout << "Pong_Server: server done\n";
 }
 
+void dnn_thread_work(Pong_Server *server) {
+    ProcessImg imgproc;
+    for ( ; ;) {
+        std::vector<uchar> out = imgproc.Process(server->clients[0].img, server->clients[1].img);
+        if(out.size() > 0) {
+            server->send_jpeg(out);
+        } else {
+            std::cout << "Missing one of two client frames, skipping sending server frame." << std::endl;
+        }
+    }
+}
+
 int main (int argc, char **argv) {
     Gst::init();
 
     Pong_Server server = Pong_Server(CONNECT_PORT);
+    std::thread dnn_thread(dnn_thread_work, &server);
 
     server.waiting_room();
 

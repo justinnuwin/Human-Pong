@@ -1,13 +1,15 @@
 #pragma once
 
 #include "BackgroundSub.hpp"
+#include "PoseEstimation.hpp"
 
-class ProcessImg
-{
+class ProcessImg {
 public:
    ProcessImg();
+   ~ProcessImg();
    std::vector<uchar> Process(std::vector<uchar> left, std::vector<uchar> right);
 
 private:
-   BackgroundSub* bSub;
+   BackgroundSub *bSub;
+   PoseEstimation pose_estimator;
 };

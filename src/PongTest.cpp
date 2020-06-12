@@ -7,28 +7,10 @@
 
 #include "BackgroundSub.hpp"
 #include "PoseEstimation.hpp"
+#include "game.hpp"
 
 #define DFL_MODEL "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb"
 
-int lpf_paddle_position(int new_pos) {
-    static float running_average = 100;
-    const static float alpha = 0.3;
-    running_average = (1. - alpha) * (float)new_pos + alpha * running_average;
-    return (int)running_average;
-}
-
-void draw_paddle(cv::Mat &image, enum PoseEstimation::BodyParts where, const PoseEstimation::PosePoints pose,
-                cv::Scalar color=cv::Scalar(255, 255, 255), int paddle_radius=60, int stroke=8, int col=30) {
-    for (const struct PoseEstimation::PosePoint &point : pose) {
-        if (point.part == where) {           
-            int position = lpf_paddle_position(point.location.y);
-            cv::Point from = cv::Point(col, position - paddle_radius);
-            cv::Point to = cv::Point(col, position + paddle_radius);
-            cv::line(image, from, to, color, stroke);
-            cv::circle(image, point.location, 100, cv::Scalar(128, 128, 128), 2);
-        }
-    }
-}
 
 int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
@@ -43,7 +25,7 @@ int main(int argc, char *argv[]) {
    cv::Mat frame;
    cam.read(frame);
 
-   cv::Mat bg = cv::imread("./bg.jpg");
+   cv::Mat bg = cv::imread("../resources/bg.jpg");
    cv::resize(bg, bg, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
 
    BackgroundSub bSub(bg, "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb");
@@ -74,3 +56,4 @@ int main(int argc, char *argv[]) {
 
    return 0;
 }
+
