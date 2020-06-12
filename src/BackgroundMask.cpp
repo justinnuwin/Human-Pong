@@ -2,11 +2,10 @@
 
 #include "BackgroundMask.hpp"
 
-#define MODEL_FILE "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb"
-#define THRESHOLD 0.7
+#define THRESHOLD 0.4
 
-BackgroundMask::BackgroundMask() {
-   bodyPix = cv::dnn::readNetFromTensorflow(MODEL_FILE);
+BackgroundMask::BackgroundMask(cv::String model) {
+   bodyPix = cv::dnn::readNetFromTensorflow(model);
 }
 
 cv::Mat BackgroundMask::GetBackground(const cv::Mat& frame) {

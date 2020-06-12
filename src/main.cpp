@@ -7,6 +7,8 @@
 
 #include "BackgroundSub.hpp"
 
+#define DFL_MODEL "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb"
+
 int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
 
@@ -23,7 +25,7 @@ int main(int argc, char *argv[]) {
    cv::Mat img = cv::imread("./bg.jpg");
    cv::resize(img, img, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
 
-   BackgroundSub bSub = BackgroundSub(img);
+   BackgroundSub bSub = BackgroundSub(img, DFL_MODEL);
 
    for (;;) {
       auto start = std::chrono::high_resolution_clock::now();
