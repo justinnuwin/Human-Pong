@@ -25,6 +25,10 @@ Pong_Connected_Client::Pong_Connected_Client() {
     udp = {0};
 }
 
+void Pong_Connected_Client::set_client_id(int id) {
+    client_id = id;
+}
+
 // blocks until data is available
 // returns size of data received
 int Pong_Connected_Client::get_jpeg() {
@@ -45,7 +49,22 @@ int Pong_Connected_Client::get_jpeg() {
     return map.get_size();
 }
 
-int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
+// app sink new_sample callback
+Gst::FlowReturn Pong_Connected_Client::data_available() {
+    int img_size = get_jpeg();
+
+    // img is stored as char* to JPEG in this.img
+    // client id is stored in this.client_id
+
+    // For bent-pipe, send data back to origin
+    server->send_jpeg(img, img_size);
+    
+    delete img;
+
+    return Gst::FlowReturn::FLOW_OK;
+}
+
+int Pong_Connected_Client::setup_rx_pipeline(int socket) {
     rx_pipeline = Gst::Pipeline::create();
 
     Glib::RefPtr<Gst::Element>
@@ -74,7 +93,7 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket, Pong_Server *server) {
     appsink->set_property("emit-signals", TRUE);
 
     // Link new-sample signal to data_available() callback
-    appsink->signal_new_sample().connect(sigc::mem_fun(server, &Pong_Server::data_available));
+    appsink->signal_new_sample().connect(sigc::mem_fun(this, &Pong_Connected_Client::data_available));
     //g_signal_connect(sink->Gst::Element::gobj(), "new-sample", G_CALLBACK(appsink_callback), NULL);
 
     if (!source || !caps || !depay || !appsink) {
@@ -175,24 +194,16 @@ void Pong_Server::send_jpeg(char* img, int img_size) {
     appsrc->push_buffer(buf);
 }
 
-// app sink new_sample callback
-Gst::FlowReturn Pong_Server::data_available() {
-    int img_size = clients[0].get_jpeg();
-
-    send_jpeg(clients[0].img, img_size);
-    delete clients[0].img;
-
-    return Gst::FlowReturn::FLOW_OK;
-}
-
 void Pong_Server::new_client(UDPInfo* udp) {
     Pong_Connected_Client* client = &clients[num_connected];
 
     *client = Pong_Connected_Client();
+    client->set_client_id(num_connected);
+    client->server = this;
     memcpy(&client->udp, udp, sizeof(UDPInfo));
 
     std::string ip = ipAddressToString(&udp->addr);
-    client->setup_rx_pipeline(server_sock, this);
+    client->setup_rx_pipeline(server_sock);
 
     std::cout << "Pong_Server: Client connected with ip " << ip << endl;
 

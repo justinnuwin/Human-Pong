@@ -149,6 +149,8 @@ void Pong_Client::start() {
         exit(EXIT_FAILURE);
     }
 
+    std::cout << "Pong_Client: Starting game" << std::endl;
+
     start_game();
 }
 
