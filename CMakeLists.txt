@@ -14,8 +14,8 @@ pkg_check_modules(GSTREAMERMM REQUIRED IMPORTED_TARGET gstreamermm-1.0)
 set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp" "src/PoseEstimation.cpp")
 file(GLOB_RECURSE HEADERS "src/*.h")
 
-add_executable("pong" "src/main.cpp" ${SOURCES} ${HEADERS})
-target_link_libraries("pong" ${OpenCV_LIBS})
+add_executable("PongTest" "src/PongTest.cpp" ${SOURCES} ${HEADERS})
+target_link_libraries("PongTest" ${OpenCV_LIBS})
 
 add_executable("BackgroundBench" "src/BackgroundBench.cpp" ${SOURCES} ${HEADERS})
 target_link_libraries("BackgroundBench" ${OpenCV_LIBS})
