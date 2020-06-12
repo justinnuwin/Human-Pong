@@ -13,7 +13,7 @@
 int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
 
-   cam.open(0);
+   cam.open(2);
 
    if (!cam.isOpened()) {
         std::cerr << "Error: Unable to open camera\n";
