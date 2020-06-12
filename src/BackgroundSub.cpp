@@ -5,12 +5,6 @@
 
 #include "BackgroundSub.hpp"
 
-
-BackgroundSub::BackgroundSub(const cv::Mat background) {
-   this->background = background;
-   this->bMask = BackgroundMask();
-}
-
 cv::Mat BackgroundSub::Sub(const cv::Mat& frame) {
    cv::Mat mask = bMask.GetBackground(frame);
 

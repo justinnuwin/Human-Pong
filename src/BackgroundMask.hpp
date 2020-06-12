@@ -6,7 +6,7 @@
 class BackgroundMask
 {
 public:
-   BackgroundMask();
+   BackgroundMask(cv::String model);
    cv::Mat GetBackground(const cv::Mat& frame);
 
 private:

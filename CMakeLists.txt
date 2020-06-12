@@ -8,8 +8,11 @@ set(CMAKE_CXX_STANDARD 14)
 find_package( OpenCV 4.3.0 REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-file(GLOB_RECURSE SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
-file(GLOB_RECURSE HEADERS "src/*.h" "ext/*/*.h" "ext/glad/*/*.h")
+set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp")
+file(GLOB_RECURSE HEADERS "src/*.h")
 
-add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${HEADERS})
-target_link_libraries(${CMAKE_PROJECT_NAME} ${OpenCV_LIBS})
+add_executable("pong" "src/main.cpp" ${SOURCES} ${HEADERS})
+target_link_libraries("pong" ${OpenCV_LIBS})
+
+add_executable("BackgroundBench" "src/BackgroundBench.cpp" ${SOURCES} ${HEADERS})
+target_link_libraries("BackgroundBench" ${OpenCV_LIBS})

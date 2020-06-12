@@ -7,7 +7,7 @@
 class BackgroundSub
 {
 public:
-   BackgroundSub(cv::Mat background);
+   BackgroundSub(cv::Mat background, cv::String model) : background(background), bMask(model) {}
    cv::Mat Sub(const cv::Mat& frame);
 
 private:
