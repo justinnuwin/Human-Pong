@@ -97,8 +97,8 @@ PoseEstimation::PosePoints PoseEstimation::estimate(const cv::Mat &image) {
     return pose;
 }
 
-void PoseEstimation::draw_pose(cv::Mat &image, PoseEstimation::PosePoints pose) {
-    for (struct PosePoint &point : pose) {
+void PoseEstimation::draw_pose(cv::Mat &image, const PoseEstimation::PosePoints pose) {
+    for (const struct PosePoint &point : pose) {
         cv::circle(image, point.location, 4, cv::Scalar(255, 255, 0), -1, cv::FILLED);
 
         char buffer[10] = {'\0'};
@@ -108,7 +108,7 @@ void PoseEstimation::draw_pose(cv::Mat &image, PoseEstimation::PosePoints pose) 
         if (bodypart_connections.find(point.part) != bodypart_connections.end()) {
             std::vector<enum BodyParts> connections = bodypart_connections.at(point.part);
             for (enum BodyParts &part : connections) {
-                for (struct PosePoint &_point : pose) {
+                for (const struct PosePoint &_point : pose) {
                     if (_point.part == part)
                         cv::line(image, point.location, _point.location, cv::Scalar(0, 255, 0), 3);
                 }
