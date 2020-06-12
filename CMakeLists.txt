@@ -16,3 +16,6 @@ target_link_libraries("pong" ${OpenCV_LIBS})
 
 add_executable("BackgroundBench" "src/BackgroundBench.cpp" ${SOURCES} ${HEADERS})
 target_link_libraries("BackgroundBench" ${OpenCV_LIBS})
+
+add_executable("PoseEstimationTest" "src/TestPoseEstimation.cpp" ${SOURCES} ${HEADERS})
+target_link_libraries("PoseEstimationTest" ${OpenCV_LIBS})
