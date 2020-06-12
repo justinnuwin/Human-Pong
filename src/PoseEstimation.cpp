@@ -20,6 +20,10 @@ std::string PoseEstimation::PosePoint::toString() const {
 
 PoseEstimation::PoseEstimation(std::string graph_path, float confidence_threshold, int network_input_width, int network_input_height, float mean_offset) {
     net = cv::dnn::readNetFromTensorflow(graph_path);
+    /*
+    net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+    net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+    */
     this->confidence_threshold = confidence_threshold;
     this->network_input_width = network_input_width;
     this->network_input_height = network_input_height;

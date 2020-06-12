@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
    cv::resize(bg, bg, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
 
    BackgroundSub bSub(bg, "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb");
-   PoseEstimation pose_estimator("../resources/models/openpose-mobilenet.pb");
+   PoseEstimation pose_estimator("../resources/models/openpose-mobilenet.pb", 0.2, 128, 128);
 
    for (;;) {
       auto start = std::chrono::high_resolution_clock::now();

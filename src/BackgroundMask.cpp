@@ -6,6 +6,10 @@
 
 BackgroundMask::BackgroundMask(cv::String model) {
    bodyPix = cv::dnn::readNetFromTensorflow(model);
+   /*
+    bodyPix.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+    bodyPix.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+    */
 }
 
 cv::Mat BackgroundMask::GetBackground(const cv::Mat& frame) {
