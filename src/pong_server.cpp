@@ -39,10 +39,7 @@ int Pong_Connected_Client::get_jpeg() {
 
     buf->map(map, Gst::MAP_READ);
 
-    // Allocate buffer to store image
-    img = new char[map.get_size()];
-    // Copy image
-    memmove(img, map.get_data(), map.get_size());
+    img = std::vector<uchar>(map.get_data(), map.get_data()+map.get_size());
 
     // Cleanup
     buf->unmap(map);
@@ -51,15 +48,15 @@ int Pong_Connected_Client::get_jpeg() {
 
 // app sink new_sample callback
 Gst::FlowReturn Pong_Connected_Client::data_available() {
-    int img_size = get_jpeg();
-
-    // img is stored as char* to JPEG in this.img
-    // client id is stored in this.client_id
+    this->get_jpeg();
+    std::vector<uchar> out = processor->Process(server->clients[0].img, server->clients[1].img);
 
     // For bent-pipe, send data back to origin
-    server->send_jpeg(img, img_size);
-    
-    delete img;
+    if(out.size() > 0) {
+        server->send_jpeg(out);
+    } else {
+        std::cout << "Missing one of two client frames, skipping sending server frame." << std::endl;
+    }
 
     return Gst::FlowReturn::FLOW_OK;
 }
@@ -115,6 +112,7 @@ int Pong_Connected_Client::setup_rx_pipeline(int port) {
 }
 
 Pong_Server::Pong_Server(int port) {
+    processor = new ProcessImg();
     server_sock = udpServerSetup(port);
 
     num_connected = 0;
@@ -142,14 +140,14 @@ int Pong_Server::setup_tx_pipeline(std::string ip1, int port1, std::string ip2, 
     Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("image/jpeg",
                                                             "width", PONG_IMG_WIDTH_PX,
                                                             "height", PONG_IMG_WIDTH_PX);
- 
+
     capsfilter->set_property("caps", caps);
 
     // Configure sink for first client
     sink1->set_property("host", ip1);
     sink1->set_property("port", port1);
     sink1->set_property("buffer-size", UDP_BUF_SIZE);
-    
+
     // configure sink for second client
     sink2->set_property("host", ip2);
     sink2->set_property("port", port2);
@@ -183,12 +181,12 @@ int Pong_Server::setup_tx_pipeline(std::string ip1, int port1, std::string ip2, 
     return 0;
 }
 
-void Pong_Server::send_jpeg(char* img, int img_size) {
-    Glib::RefPtr<Gst::Buffer> buf = Gst::Buffer::create(img_size);
+void Pong_Server::send_jpeg(std::vector<uchar> img) {
+    Glib::RefPtr<Gst::Buffer> buf = Gst::Buffer::create(img.size());
     Gst::MapInfo map;
 
     buf->map(map, Gst::MAP_WRITE);
-    memmove(map.get_data(), img, img_size);
+    std::copy(img.begin(), img.end(), map.get_data());
     buf->unmap(map);
 
     appsrc->push_buffer(buf);
@@ -200,6 +198,7 @@ void Pong_Server::new_client(UDPInfo* udp) {
     *client = Pong_Connected_Client();
     client->set_client_id(num_connected);
     client->server = this;
+    client->processor = this->processor;
     memcpy(&client->udp, udp, sizeof(UDPInfo));
 
     std::string ip = ipAddressToString(&udp->addr);
@@ -224,12 +223,12 @@ void Pong_Server::waiting_room() {
     #ifndef PONG_TEST_MODE
     while(num_connected < NUM_PLAYERS) {
         select_call(server_sock, 0, 0, !USE_SELECT_TIMEOUT);
-       
+
         flag = recv_pong_pkt(server_sock, &udp);
- 
+
         if (flag == FLAG_PONG_CONNECT) {
             new_client(&udp);
-            
+
             // set server tx_port to client rx_port number
             tx_port[num_connected - 1] = udp.port;
             // set client tx_port to server rx_port
@@ -240,7 +239,7 @@ void Pong_Server::waiting_room() {
         else
             std::cout << "Pong_Server: rcvd back packet" << endl;
     }
-    
+
     bpoint();
 
     // setup tx pipeline for connected ips
@@ -263,7 +262,7 @@ void Pong_Server::set_client_pipeline_states(Gst::State state) {
 
 void Pong_Server::send_clients_pkt(int flag) {
     int i;
-    
+
     for (i=0; i < num_connected; i++) {
         send_pong_pkt(server_sock, &clients[i].udp, flag);
     }

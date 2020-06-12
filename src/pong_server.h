@@ -1,6 +1,7 @@
 #ifndef PONG_SERVER_H
 #define PONG_SERVER_H
 
+#include "ProcessImg.h"
 #include "pong_config.h"
 #include "networks.h"
 
@@ -22,8 +23,9 @@ class Pong_Connected_Client {
         Gst::FlowReturn data_available();
 
         Pong_Server* server;
+        ProcessImg* processor;
 
-        char* img;
+        std::vector<uchar> img;
         int client_id;
 };
 
@@ -35,7 +37,8 @@ class Pong_Server {
         void new_client(UDPInfo*);
         void start_game();
 
-        void send_jpeg(char*, int);
+        void send_jpeg(std::vector<uchar>);
+        Pong_Connected_Client clients[NUM_PLAYERS];
 
     private:
         int server_sock;
@@ -44,7 +47,7 @@ class Pong_Server {
         Glib::RefPtr<Gst::Pipeline> tx_pipeline;
         Glib::RefPtr<Gst::AppSrc> appsrc;
 
-        Pong_Connected_Client clients[NUM_PLAYERS];
+        ProcessImg* processor;
 
         int setup_tx_pipeline(std::string ip1, int port1, std::string ip2, int port2);
         void set_client_pipeline_states(Gst::State);

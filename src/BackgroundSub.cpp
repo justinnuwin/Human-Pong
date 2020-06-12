@@ -8,6 +8,10 @@
 cv::Mat BackgroundSub::Sub(const cv::Mat& frame) {
    cv::Mat mask = bMask.GetBackground(frame);
 
+   if (background.size() != frame.size()) {
+      cv::resize(background, background, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
+   }
+
    cv::resize(mask, mask, frame.size(), cv::INTER_CUBIC);
    cv::waitKey(20);
 
