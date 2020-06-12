@@ -36,6 +36,7 @@ std::vector<uchar> ProcessImg::Process(std::vector<uchar> left, std::vector<ucha
    }
 
    PoseEstimation::PosePoints left_pose = pose_estimator.estimate(leftMat);
+    std::cout << "Here" << std::endl;
    PoseEstimation::PosePoints right_pose = pose_estimator.estimate(rightMat);
    leftMat = bSub->Sub(leftMat);
    rightMat = bSub->Sub(rightMat);

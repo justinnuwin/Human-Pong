@@ -13,7 +13,6 @@ cv::Mat BackgroundSub::Sub(const cv::Mat& frame) {
    }
 
    cv::resize(mask, mask, frame.size(), cv::INTER_CUBIC);
-   cv::waitKey(20);
 
    cv::Mat out = cv::Mat::zeros(frame.size(), frame.type());
    cv::bitwise_or(out, frame, out, mask);

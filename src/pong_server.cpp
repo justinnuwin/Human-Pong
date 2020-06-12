@@ -294,6 +294,7 @@ void dnn_thread_work(Pong_Server *server) {
         std::vector<uchar> out = imgproc.Process(server->clients[0].img, server->clients[1].img);
         if(out.size() > 0) {
             server->send_jpeg(out);
+            std::cout << "Sent!" << std::endl;
         } else {
             std::cout << "Missing one of two client frames, skipping sending server frame." << std::endl;
         }
