@@ -28,22 +28,6 @@ Pong_Connected_Client::Pong_Connected_Client() {
 // blocks until data is available
 // returns size of data received
 int Pong_Connected_Client::get_jpeg() {
-/* Example using C library
-    GstSample* sample = gst_app_sink_pull_sample(GST_APP_SINK(appsink->Gst::Element::gobj()));
-    if (sample == NULL) {
-        std::cerr << "Error: gst sample returned NULL\n" << endl;
-        return NULL;
-    }
-    GstBuffer* buffer = gst_sample_get_buffer(sample);
-    GstMapinfo map;
-    gst_buffer_map(buffer, &map, GST_MAP_READ);
-
-    // get data out of buffer
-
-    gst_buffer_unmap(buffer, &map);
-    gst_sample_unref(sample);
-*/
-
     // Get compressed image out of sample
     Glib::RefPtr<Gst::Sample> sample = appsink->pull_sample();
     Glib::RefPtr<Gst::Buffer> buf = sample->get_buffer();
@@ -180,23 +164,8 @@ int Pong_Server::setup_tx_pipeline(std::string ip1, std::string ip2) {
     return 0;
 }
 
-// Places JPEG into tx pipeline, must use image of size PONG_IMG_SIZE
 void Pong_Server::send_jpeg(char* img, int img_size) {
-    /* C implementation
-    GstBuffer* buffer;
-
-    buffer = gst_buffer_new_allocate(NULL, PONG_IMG_SIZE, NULL);
-
-    GstMapInfo info;
-    gst_buffer_map(buffer, &info, GST_MAP_WRITE);
-    unsigned char* buf = info.data;
-    memmove(buf, img, PONG_IMG_SIZE);
-    gst_buffer_unmap(buffer, &info);
-
-    gst_app_src_push_buffer(GST_APP_SRC(appsrc->Gst::Element::gobj()), buffer);
-    */
-
-    Glib::RefPtr<Gst::Buffer> buf = Gst::Buffer::create(PONG_IMG_SIZE);
+    Glib::RefPtr<Gst::Buffer> buf = Gst::Buffer::create(img_size);
     Gst::MapInfo map;
 
     buf->map(map, Gst::MAP_WRITE);
