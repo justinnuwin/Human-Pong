@@ -6,11 +6,12 @@
 #include <opencv2/imgproc.hpp>
 
 #include "BackgroundSub.hpp"
+#include "PoseEstimation.hpp"
 
 int main(int argc, char *argv[]) {
    cv::VideoCapture cam;
 
-   cam.open(2);
+   cam.open(0);
 
    if (!cam.isOpened()) {
         std::cerr << "Error: Unable to open camera\n";
@@ -24,6 +25,7 @@ int main(int argc, char *argv[]) {
    cv::resize(img, img, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
 
    BackgroundSub bSub = BackgroundSub(img);
+   PoseEstimation pose_estimator("../resources/models/openpose-mobilenet.pb");
 
    for (;;) {
       auto start = std::chrono::high_resolution_clock::now();
@@ -34,6 +36,10 @@ int main(int argc, char *argv[]) {
          return -1;
       }
 
+      PoseEstimation::PosePoints pose = pose_estimator.estimate(frame);
+      for (int i = 0; i < pose.size(); ++i) {
+          std::cout << pose[i] << std::endl;
+      }
       cv::Mat mask = bSub.Sub(frame);
       imshow("Background", mask);
       if(cv::waitKey(1) >= 0) {
