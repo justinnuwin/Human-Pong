@@ -23,9 +23,10 @@ int main(int argc, char *argv[]) {
    cv::Mat frame;
    cam.read(frame);
 
-   cv::Mat img = cv::imread("./bg.jpg");
-   cv::resize(img, img, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
+   cv::Mat bg = cv::imread("./bg.jpg");
+   cv::resize(bg, bg, frame.size(), 0.0, 0.0, cv::INTER_CUBIC);
 
+   BackgroundSub bSub(bg, "../resources/models/bodypix_mobilenet_float_050_model-stride8.pb");
    PoseEstimation pose_estimator("../resources/models/openpose-mobilenet.pb");
 
    for (;;) {
