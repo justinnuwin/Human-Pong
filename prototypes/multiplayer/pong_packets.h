@@ -7,6 +7,7 @@
 
 typedef struct pkt_Pong {
     uint8_t flag;
+    uint16_t port;
 } __attribute__((packed)) pkt_Pong;
 
 #define FLAG_PONG_CONNECT 1

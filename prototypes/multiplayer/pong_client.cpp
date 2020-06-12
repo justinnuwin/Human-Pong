@@ -12,7 +12,39 @@
 
 Pong_Client::Pong_Client() {}
 
-int Pong_Client::setup_tx_pipeline() { 
+int Pong_Client::setup_tx_pipeline_auto(int port) { 
+    tx_pipeline = Gst::Pipeline::create();
+    
+    Glib::RefPtr<Gst::Element>
+        source = Gst::ElementFactory::create_element("videotestsrc", "source"),
+        enc = Gst::ElementFactory::create_element("jpegenc", "encoder"),
+        pay = Gst::ElementFactory::create_element("rtpjpegpay", "rtppay"),
+        sink = Gst::ElementFactory::create_element("udpsink", "sink");
+
+    sink->set_property("host", (std::string)REMOTE_HOST);
+    sink->set_property("port", port);
+    sink->set_property("buffer-size", UDP_BUF_SIZE);
+  
+    if (!source || !enc || !pay || !sink) {
+        std::cerr << "GStreamer: Element creation failed\n" << std::endl;
+        return -1;
+    }
+
+    try {
+        tx_pipeline->add(source)->add(enc)->add(pay)->add(sink);
+        
+        source->link(enc);
+        enc->link(pay);
+        pay->link(sink);
+    } catch (const std::runtime_error &err) {
+        std::cerr<<err.what()<<std::endl;
+        return -1;
+    }
+
+    return 0;
+}
+
+int Pong_Client::setup_tx_pipeline(int port) { 
     tx_pipeline = Gst::Pipeline::create();
     
     Glib::RefPtr<Gst::Element>
@@ -30,7 +62,7 @@ int Pong_Client::setup_tx_pipeline() {
     capsfilter->set_property("caps", caps);
 
     sink->set_property("host", (std::string)REMOTE_HOST);
-    sink->set_property("port", SERVER_RX_PORT);
+    sink->set_property("port", port);
     sink->set_property("buffer-size", UDP_BUF_SIZE);
   
     if (!source || !caps || !enc || !pay || !sink) {
@@ -111,7 +143,10 @@ bool Pong_Client::waiting_room() {
     bool connected = false;
     UDPInfo udp;
 
-    std::cout << "Pong_Client: Connecting to server at " << REMOTE_HOST << " port " << VIDEO_PORT << std::endl;
+    // set requested rx_port
+    server_udp.port = SERVER_TX_PORT;
+
+    std::cout << "Pong_Client: Connecting to server at " << REMOTE_HOST << " port " << CONNECT_PORT << std::endl;
 
     // Sends connection packet until connected CONNECTION_RETRIES times
     while (!connected && (retries-- > 0)) {
@@ -124,15 +159,19 @@ bool Pong_Client::waiting_room() {
     if (!connected)
         return false;
 
+    // set tx_port
+    server_udp.port = udp.port;
+
     std::cout << "Pong_Client:: Waiting for other client to connect" << std::endl;
     select_call(client_sock, 0, 0, !USE_SELECT_TIMEOUT);
 
     return (FLAG_PONG_START == recv_pong_pkt(client_sock, &udp));
 }
 
-void Pong_Client::start() {
+// fakesrc determines whether client broadcasts fake src or not
+void Pong_Client::start(bool fakesrc) {
     // set up UDPInfo and socket
-    client_sock = setupUdpClientToServer(&server_udp, (char*)REMOTE_HOST, SERVER_RX_PORT);
+    client_sock = setupUdpClientToServer(&server_udp, (char*)REMOTE_HOST, CONNECT_PORT);
 
     if (!waiting_room()) {
         std::cerr << "Pong_Client: Connection to Server timed out or rcvd bad packet" << std::endl;    
@@ -144,9 +183,18 @@ void Pong_Client::start() {
         std::cout << "Pong_Client: Error setting up rx pipeline\n";
         exit(EXIT_FAILURE);
     }
-    if (setup_tx_pipeline() == -1) {
-        std::cout << "Pong_Client: Error setting up tx pipeline\n";
-        exit(EXIT_FAILURE);
+
+    if (fakesrc) {
+        if (setup_tx_pipeline_auto(server_udp.port) == -1) {
+            std::cout << "Pong_Client: Error setting up tx pipeline\n";
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        if (setup_tx_pipeline(server_udp.port) == -1) {
+            std::cout << "Pong_Client: Error setting up tx pipeline\n";
+            exit(EXIT_FAILURE);
+        }
     }
 
     std::cout << "Pong_Client: Starting game" << std::endl;
@@ -154,12 +202,22 @@ void Pong_Client::start() {
     start_game();
 }
 
-int main (int argc, char **argv) { 
+bool check_args(int argc, char** argv) {
+    if (argc > 1)
+        return (strcmp(argv[1], "auto") == 0); 
+    return false;
+}
+
+int main (int argc, char** argv) { 
+    bool fakesrc;
+
     Gst::init();
+
+    fakesrc = check_args(argc, argv);    
 
     Pong_Client client = Pong_Client();
     
-    client.start();
+    client.start(fakesrc);
 
     std::cout << "done\n";
  

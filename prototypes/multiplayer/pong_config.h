@@ -15,9 +15,10 @@
 
 // Networking
 #define REMOTE_HOST "127.0.0.1"
-#define VIDEO_PORT 5200
-#define SERVER_RX_PORT VIDEO_PORT
-#define SERVER_TX_PORT VIDEO_PORT + 1
+#define CONNECT_PORT 5200
+
+#define SERVER_TX_PORT 5201
+#define SERVER_DATA_PORT_BASE 5300
 
 #define UDP_BUF_SIZE (512 * 1024)
 

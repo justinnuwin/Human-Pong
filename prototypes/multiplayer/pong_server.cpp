@@ -64,7 +64,7 @@ Gst::FlowReturn Pong_Connected_Client::data_available() {
     return Gst::FlowReturn::FLOW_OK;
 }
 
-int Pong_Connected_Client::setup_rx_pipeline(int socket) {
+int Pong_Connected_Client::setup_rx_pipeline(int port) {
     rx_pipeline = Gst::Pipeline::create();
 
     Glib::RefPtr<Gst::Element>
@@ -76,12 +76,12 @@ int Pong_Connected_Client::setup_rx_pipeline(int socket) {
     // Configure Source
     std::string ip = ipAddressToString(&udp.addr);
 
-    GSocket* gsock = g_socket_new_from_fd(socket, NULL);
-    source->set_property("port", SERVER_RX_PORT);
+    //GSocket* gsock = g_socket_new_from_fd(socket, NULL);
+    source->set_property("port", port);
     source->set_property("address", ip);
     //source->set_property("socket", gsock);
     // Link gsock in C because C++ isn't working, this seems to work fine though
-    g_object_set(G_OBJECT(source->Gst::Element::gobj()), "socket", gsock, NULL);
+    //g_object_set(G_OBJECT(source->Gst::Element::gobj()), "socket", gsock, NULL);
 
     Glib::RefPtr<Gst::Caps> caps = Gst::Caps::create_simple("application/x-rtp",
                                                             "encoding-name", "JPEG",
@@ -120,7 +120,7 @@ Pong_Server::Pong_Server(int port) {
     num_connected = 0;
 }
 
-int Pong_Server::setup_tx_pipeline(std::string ip1, std::string ip2) {
+int Pong_Server::setup_tx_pipeline(std::string ip1, int port1, std::string ip2, int port2) {
     tx_pipeline = Gst::Pipeline::create();
 
     appsrc = Gst::AppSrc::create("tx_src");
@@ -147,12 +147,12 @@ int Pong_Server::setup_tx_pipeline(std::string ip1, std::string ip2) {
 
     // Configure sink for first client
     sink1->set_property("host", ip1);
-    sink1->set_property("port", SERVER_TX_PORT);
+    sink1->set_property("port", port1);
     sink1->set_property("buffer-size", UDP_BUF_SIZE);
     
     // configure sink for second client
     sink2->set_property("host", ip2);
-    sink2->set_property("port", SERVER_TX_PORT);
+    sink2->set_property("port", port2);
     sink2->set_property("buffer-size", UDP_BUF_SIZE);
 
     // Add Elements and link
@@ -161,7 +161,7 @@ int Pong_Server::setup_tx_pipeline(std::string ip1, std::string ip2) {
         ->add(queue1)->add(sink1)
         ->add(queue2)->add(sink2);
 
-        appsrc->link(capsfilter)->link(pay);
+        appsrc->link(capsfilter)->link(pay)->link(tee);
         queue1->link(sink1);
         queue2->link(sink2);
     } catch (const std::runtime_error &err) {
@@ -203,18 +203,23 @@ void Pong_Server::new_client(UDPInfo* udp) {
     memcpy(&client->udp, udp, sizeof(UDPInfo));
 
     std::string ip = ipAddressToString(&udp->addr);
-    client->setup_rx_pipeline(server_sock);
+    client->setup_rx_pipeline(SERVER_DATA_PORT_BASE + num_connected);
 
-    std::cout << "Pong_Server: Client connected with ip " << ip << endl;
+    std::cout << "Pong_Server: Client connected with ip " << ip;
+    std::cout << " client_rx_port=" << udp->port;
+    std::cout << " client_tx_port=" << SERVER_DATA_PORT_BASE + num_connected << endl;
 
     num_connected++;
 }
 
+void bpoint() {}
+
 // waits for clients to connect
 void Pong_Server::waiting_room() {
-    UDPInfo udp;
+    UDPInfo udp = {0};
     int flag;
     string ip1, ip2;
+    int tx_port[2];
 
     #ifndef PONG_TEST_MODE
     while(num_connected < NUM_PLAYERS) {
@@ -224,19 +229,27 @@ void Pong_Server::waiting_room() {
  
         if (flag == FLAG_PONG_CONNECT) {
             new_client(&udp);
+            
+            // set server tx_port to client rx_port number
+            tx_port[num_connected - 1] = udp.port;
+            // set client tx_port to server rx_port
+            udp.port = SERVER_DATA_PORT_BASE + num_connected - 1;
+
             send_pong_pkt(server_sock, &udp, FLAG_PONG_CONNECT_ACK);
         }
         else
             std::cout << "Pong_Server: rcvd back packet" << endl;
     }
+    
+    bpoint();
 
     // setup tx pipeline for connected ips
     ip1 = ipAddressToString(&clients[0].udp.addr);
     ip2 = ipAddressToString(&clients[1].udp.addr);
-    setup_tx_pipeline(ip1, ip2);
+    setup_tx_pipeline(ip1, tx_port[0], ip2, tx_port[1]);
 
     #else
-        // TODO implement test mode setup
+        // TODO implement t`st mode setup
     #endif
 }
 
@@ -276,7 +289,7 @@ void Pong_Server::start_game() {
 int main (int argc, char **argv) {
     Gst::init();
 
-    Pong_Server server = Pong_Server(VIDEO_PORT);
+    Pong_Server server = Pong_Server(CONNECT_PORT);
 
     server.waiting_room();
 

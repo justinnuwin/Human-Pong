@@ -23,6 +23,7 @@ typedef struct UDPInfo {
     socklen_t addr_len;
 
     int sock;
+    int port;
 } UDPInfo;
 
 // sets up UDP socket

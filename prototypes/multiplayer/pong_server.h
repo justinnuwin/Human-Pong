@@ -11,7 +11,7 @@ class Pong_Connected_Client {
         Pong_Connected_Client();
 
         int get_jpeg();
-        int setup_rx_pipeline(int socket);
+        int setup_rx_pipeline(int port);
 
         void set_client_id(int);
 
@@ -46,7 +46,7 @@ class Pong_Server {
 
         Pong_Connected_Client clients[NUM_PLAYERS];
 
-        int setup_tx_pipeline(std::string ip1, std::string ip2);
+        int setup_tx_pipeline(std::string ip1, int port1, std::string ip2, int port2);
         void set_client_pipeline_states(Gst::State);
         void send_clients_pkt(int flag);
 };
