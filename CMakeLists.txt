@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 14)
 find_package( OpenCV 4.3.0 REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp")
+set(SOURCES "src/BackgroundMask.cpp" "src/BackgroundSub.cpp" "src/PoseEstimation.cpp")
 file(GLOB_RECURSE HEADERS "src/*.h")
 
 add_executable("pong" "src/main.cpp" ${SOURCES} ${HEADERS})
