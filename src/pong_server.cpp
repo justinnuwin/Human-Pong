@@ -19,6 +19,7 @@
 #include "gethostbyname.h"
 #include "networks.h"
 #include <thread>         // std::thread
+#include <mutex>
 
 using namespace std;
 
@@ -30,6 +31,8 @@ void Pong_Connected_Client::set_client_id(int id) {
     client_id = id;
 }
 
+std::mutex mtx;
+
 // blocks until data is available
 // returns size of data received
 int Pong_Connected_Client::get_jpeg() {
@@ -40,7 +43,9 @@ int Pong_Connected_Client::get_jpeg() {
 
     buf->map(map, Gst::MAP_READ);
 
+    mtx.try_lock();
     img = std::vector<uchar>(map.get_data(), map.get_data()+map.get_size());
+    mtx.unlock();
 
     // Cleanup
     buf->unmap(map);
@@ -290,13 +295,19 @@ void Pong_Server::start_game() {
 
 void dnn_thread_work(Pong_Server *server) {
     ProcessImg imgproc;
+    unsigned frame_counter = 0;
     for ( ; ;) {
-        std::vector<uchar> out = imgproc.Process(server->clients[0].img, server->clients[1].img);
+
+        std::vector<uchar> client0_im(server->clients[0].img);
+        std::vector<uchar> client1_im(server->clients[1].img);
+
+        std::vector<uchar> out = imgproc.Process(client0_im, client1_im);
         if(out.size() > 0) {
-            server->send_jpeg(out);
+           server->send_jpeg(out);
         } else {
-            std::cout << "Missing one of two client frames, skipping sending server frame." << std::endl;
+            std::cout << "Missing one of two client frames, Dropping frame " << frame_counter << std::endl;
         }
+        frame_counter++;
     }
 }
 
